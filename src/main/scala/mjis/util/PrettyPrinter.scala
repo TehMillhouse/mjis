@@ -178,19 +178,19 @@ class PrettyPrinter(writer: BufferedWriter) {
   }
 
   private def printMethodDecl(method: MethodDecl): Unit = {
-        emit("public ")
-        if (method.isStatic)
-          emit("static ")
-        printType(method.typ)
-        emit(" " + method.name + "(")
-        var i = 0
-        for (param <- method.parameters) {
-          printType(param.typ)
-          emit(" ")
-          emit(param.name)
-          i += 1
-          if (method.parameters.length > i) emit(", ")
-        }
+    emit("public ")
+    if (method.isStatic)
+      emit("static ")
+    printType(method.typ)
+    emit(" " + method.name + "(")
+    var i = 0
+    for (param <- method.parameters) {
+      printType(param.typ)
+      emit(" ")
+      emit(param.name)
+      i += 1
+      if (method.parameters.length > i) emit(", ")
+    }
     emit(") ")
     printBlock(method.body.asInstanceOf[Block])
   }
