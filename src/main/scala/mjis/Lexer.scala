@@ -252,6 +252,7 @@ class Lexer(val inputReader: java.io.Reader) extends AnalysisPhase[LookaheadIter
 
     if (!this.success) {
       writer.write("error")
+      writer.newLine()
     }
     writer.flush()
   }
