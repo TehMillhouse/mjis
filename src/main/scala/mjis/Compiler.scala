@@ -18,17 +18,15 @@ object Compiler {
     val lexer = new Lexer(new InputStreamReader(concatenatedInputStream, "ASCII"))
     val parser = new Parser(lexer.result)
 
-    if (config.stopAfter == "lexer") {
+    if (config.stopAfter != "") {
       val out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(java.io.FileDescriptor.out), "ASCII"))
-      lexer.dumpResult(out)
+      config.stopAfter match {
+        case "lexer" => lexer.dumpResult(out)
+        case "parser" => parser.dumpResult(out)
+      }
       out.close()
-    } else if (config.stopAfter == "parser") {
-      val out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(java.io.FileDescriptor.out), "ASCII"))
-      parser.dumpResult(out)
-      out.close()
-    } else {
-      parser.result // something something
-    }
+    } else
+      parser.result // force evaluation
 
     lexer.findings.foreach(System.err.println)
     parser.findings.map(System.err.println)
