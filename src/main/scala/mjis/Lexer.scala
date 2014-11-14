@@ -2,6 +2,7 @@ package mjis
 
 import scala.collection.AbstractIterator
 import scala.collection.mutable.{ListBuffer, Queue, Map => MutableMap}
+import java.io.BufferedWriter
 
 import mjis.TokenData._
 
@@ -238,17 +239,20 @@ class Lexer(val inputReader: java.io.Reader) extends AnalysisPhase[LookaheadIter
 
   override def findings: List[Finding] = _findings.toList
 
-  override def dumpResult(): Iterator[String] = {
-    var dump: Iterator[String] = result.map(token => token.data match {
-      case Identifier(literal) => s"identifier $literal"
-      case IntegerLiteral(literal) => s"integer literal $literal"
-      case _ => token.data.literal
-    })
+  override def dumpResult(writer: BufferedWriter): Unit = {
 
-    if (!this.success) {
-      dump ++= Iterator.single("error")
+    for (token <- result) {
+      token.data match {
+        case Identifier(literal) => writer.write(s"identifier $literal")
+        case IntegerLiteral(literal) => writer.write(s"integer literal $literal")
+        case _ => writer.write(token.data.literal)
+      }
+      writer.newLine()
     }
 
-    dump
+    if (!this.success) {
+      writer.write("error")
+    }
+    writer.flush()
   }
 }

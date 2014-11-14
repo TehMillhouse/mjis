@@ -1,5 +1,6 @@
 package mjis
 
+import java.io.BufferedWriter
 import scala.util.control.TailCalls._
 import scala.collection.mutable.ListBuffer
 import mjis.TokenData.{ If => IfToken, While => WhileToken, New => NewToken, _ }
@@ -31,7 +32,12 @@ class Parser(tokens: LookaheadIterator[Token]) extends AnalysisPhase[Option[Prog
 
   protected override def getResult(): Option[Program] = parseProgram()
 
-  override def dumpResult() = ???
+  override def dumpResult(out: BufferedWriter) = {
+    getResult() match {
+      case Some(program) => (new mjis.util.PrettyPrinter(out)).print(program)
+      case None => ()
+    }
+  }
 
   private def consume() = tokens.next()
 

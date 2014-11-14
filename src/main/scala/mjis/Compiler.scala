@@ -20,10 +20,10 @@ object Compiler {
 
     if (config.stopAfter == "lexer") {
       val out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(java.io.FileDescriptor.out), "ASCII"))
-      lexer.dumpResult().foreach(s => {
-        out.write(s)
-        out.newLine()
-      })
+      lexer.dumpResult(out)
+    } else if (config.stopAfter == "parser") {
+      val out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(java.io.FileDescriptor.out), "ASCII"))
+      parser.dumpResult(out)
     } else {
       parser.result // something something
     }
