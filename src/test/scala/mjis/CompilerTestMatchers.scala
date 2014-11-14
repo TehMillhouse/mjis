@@ -2,7 +2,9 @@ package mjis
 
 import org.scalatest.matchers.{ MatchResult, Matcher }
 import mjis.ast.SyntaxTree
-import System.{lineSeparator => n}
+import System.{ lineSeparator => n }
+import mjis.util.PrettyPrinter
+import java.io.{StringWriter, BufferedWriter}
 
 trait CompilerTestMatchers {
 
@@ -33,9 +35,30 @@ trait CompilerTestMatchers {
     }
   }
 
+  class PrettyPrinterSuccessMatcher(expectedString: String) extends Matcher[Parser] {
+    def apply(parser: Parser) = {
+      val result = parser.result
+      val stw = new StringWriter();
+      val buf = new BufferedWriter(stw)
+      new PrettyPrinter(buf).print(result.get)
+      buf.flush()
+      val prettyPrint = stw.toString()
+      def findError: String = s"$n  Expected String:$n$expectedString$n  Computed String:$n$prettyPrint$n"
+      val success = prettyPrint == expectedString
+      val error = if (success) "" else findError
+
+      MatchResult(
+        success,
+        s"Pretty printing failed, expected it to succeed.$error",
+        "Parsing succeeded, expected it to fail")
+    }
+  }
+
   def succeedLexing() = new LexerSuccessMatcher()
   def succeedParsing() = new ParserSuccessMatcher(None)
   def succeedParsingWith(expectedAST: SyntaxTree) = new ParserSuccessMatcher(Some(expectedAST))
+  def succeedPrettyPrintingWith(expectedString: String) = new PrettyPrinterSuccessMatcher(expectedString)
+
 }
 
 object CompilerTestMatchers extends CompilerTestMatchers

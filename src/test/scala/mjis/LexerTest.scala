@@ -2,6 +2,7 @@ package mjis
 
 import mjis.TokenData._
 import org.scalatest._
+import java.io.{StringWriter, BufferedWriter}
 
 class LexerTest extends FlatSpec with Matchers with Inspectors {
 
@@ -284,7 +285,10 @@ class LexerTest extends FlatSpec with Matchers with Inspectors {
         |  }
         |}
         |""".stripMargin)
-    lexer.dumpResult().mkString(System.lineSeparator) should equal (
+    val stw = new StringWriter()
+    val buf = new BufferedWriter(stw)
+    lexer.dumpResult(buf)
+    stw.toString() should equal (
       """class
         |identifier classic
         |{
@@ -312,7 +316,9 @@ class LexerTest extends FlatSpec with Matchers with Inspectors {
         |;
         |}
         |}
-        |EOF""".stripMargin)
+        |EOF
+""".stripMargin)
+    buf.close()
   }
 
 }
