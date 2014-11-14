@@ -16,7 +16,7 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
     parser
   }
 
-  it should "collapse empty classes" in {
+  "The pretty-printer" should "collapse empty classes" in {
     prettyPrintProgram(
         """class A {}""") should succeedPrettyPrintingWith(
         """class A { }
@@ -60,7 +60,26 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
            |""".stripMargin)
   }
 
-  // fails because of main
+  it should "omit an empty else" in {
+    prettyPrintProgram(
+        """class HelloWorld
+           |{
+           |  public int bar(int a, int b) {
+           |    if (true) {
+           |      int i;
+           |    } else ;
+           |  }
+           |}""".stripMargin) should succeedPrettyPrintingWith(
+        """class HelloWorld {
+           |	public int bar(int a, int b) {
+           |		if (true) {
+           |			int i;
+           |		}
+           |	}
+           |}
+           |""".stripMargin)
+  }
+
   it should "properly prettyprint the example from the sheet" in {
     prettyPrintProgram(
         """class HelloWorld
@@ -102,7 +121,7 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
            |}
            |""".stripMargin)
   }
-  // main is currently not being handled correctly
+
   it should "pretty-print many fields, main methods and methods" in {
     prettyPrintProgram(
       """class C {
