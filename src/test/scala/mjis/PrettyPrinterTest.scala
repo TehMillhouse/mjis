@@ -61,7 +61,7 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
   }
 
   // fails because of main
-  ignore should "properly prettyprint the example from the sheet" in {
+  it should "properly prettyprint the example from the sheet" in {
     prettyPrintProgram(
         """class HelloWorld
            |{
@@ -103,7 +103,7 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
            |""".stripMargin)
   }
   // main is currently not being handled correctly
-  ignore should "pretty-print many fields, main methods and methods" in {
+  it should "pretty-print many fields, main methods and methods" in {
     prettyPrintProgram(
       """class C {
         |public int x;
@@ -116,6 +116,7 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
         |	public static void main(String[] args) { }
         |	public int z(int j, A b) { }
         |	public int x;
-        |}""".stripMargin)
+        |}
+        |""".stripMargin)
   }
 }

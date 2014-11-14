@@ -19,6 +19,11 @@ class PrettyPrinter(writer: BufferedWriter) {
     writer.flush()
   }
 
+  /// concerning whitespace:
+  /// all print*-methods assume they're called "inline", and that the caller has
+  /// handled all surrounding whitespace, with the exception of printConditionalBody,
+  /// which only exists to reduce duplicate code between handling of If and While statements.
+
   private def printClassDecl(cl: ClassDecl): Unit = {
     emit(s"class ${cl.name} {")
     if (cl.methods.isEmpty && cl.fields.isEmpty)
@@ -108,7 +113,7 @@ class PrettyPrinter(writer: BufferedWriter) {
         printExpression(lhs)
         emit(" = ")
         printExpression(rhs)
-      case Apply(_, _) => printApply(expr.asInstanceOf[Apply])
+      case Apply(_, _, _) => printApply(expr.asInstanceOf[Apply])
       case NewObject(typ) =>
         emit("new ")
         printType(typ)
@@ -136,43 +141,47 @@ class PrettyPrinter(writer: BufferedWriter) {
 
   // method invocations and operators need to be re-sugared
   private def printApply(invoc: Apply): Unit = {
-    invoc.name match {
-      case "==" | "!=" | "+" | "-" | "&&" | "||" | "<" | ">" | "<=" | ">=" | "*" | "/" | "%" =>
-        printExpression(invoc.arguments(0))
-        emit(" ")
-        emit(invoc.name)
-        emit(" ")
-        printExpression(invoc.arguments(1))
-      case "!" | "- (unary)" =>
-        if (invoc.name == "!")
-          emit(invoc.name)
-        else
-          emit("-")  // Ugh, let's find a better way to do this.
-        printExpression(invoc.arguments(0))
-      case "[]" =>
-        printExpression(invoc.arguments(0))
-        emit("[")
-        printExpression(invoc.arguments(1), parens=false)
-        emit("]")
-      case _ =>
-        if (invoc.arguments(0) != ThisLiteral) {
-          // all explicit `this` literals are stripped (there's no way to find out which ones were implicit anyways)
+    if (invoc.isOperator) {
+      if (invoc.arguments.length == 2) {
+        if (invoc.name == "[]") {
+          // array access
           printExpression(invoc.arguments(0))
-          emit(".")
+          emit("[")
+          printExpression(invoc.arguments(1), parens=false)
+          emit("]")
+        } else {
+          // other binary operators
+          printExpression(invoc.arguments(0))
+          emit(s" ${invoc.name} ")
+          printExpression(invoc.arguments(1))
         }
+      } else {
+        // unary operators
         emit(invoc.name)
-        emit("(")
-        for (i <- 1 until invoc.arguments.length) {
-          printExpression(invoc.arguments(i), parens=false)
-          if (i < invoc.arguments.length - 1) emit(", ")
-        }
-        emit(")")
+        printExpression(invoc.arguments(0))
+      }
+    } else {
+      // normal method calls
+      if (invoc.arguments(0) != ThisLiteral) {
+        // all explicit `this` literals are stripped (there's no way to find out which ones were implicit anyways)
+        printExpression(invoc.arguments(0))
+        emit(".")
+      }
+      emit(invoc.name)
+      emit("(")
+      for (i <- 1 until invoc.arguments.length) {
+        printExpression(invoc.arguments(i), parens=false)
+        if (i < invoc.arguments.length - 1) emit(", ")
+      }
+      emit(")")
     }
   }
 
   // TODO: properly handle main method
   private def printMethodDecl(method: MethodDecl): Unit = {
         emit("public ")
+        if (method.name == "main") // hack hack hack
+          emit("static ")
         printType(method.typ)
         emit(" " + method.name + "(")
         var i = 0

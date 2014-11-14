@@ -111,7 +111,7 @@ class Parser(tokens: LookaheadIterator[Token]) extends AnalysisPhase[Option[Prog
       val paramName = expectIdentifier()
       expectSymbol(ParenClosed)
       val block = parseBlock().result
-      MethodDecl(mainName, List(Parameter(paramName, TypeArray(TypeBasic("String")))), TypeBasic("void"), block)
+      MethodDecl(mainName, List(Parameter(paramName, TypeArray(TypeBasic("String")))), TypeBasic("void"), block, isMain=true)
     } else {
       val typ = parseType()
       val ident = expectIdentifier()
@@ -372,7 +372,7 @@ class Parser(tokens: LookaheadIterator[Token]) extends AnalysisPhase[Option[Prog
     expectSymbol(SquareBracketOpen)
     parseExpression().map(param => {
       expectSymbol(SquareBracketClosed)
-      Apply("[]", List(e, param))
+      Apply("[]", List(e, param), isOperator=true)
     })
   }
 
@@ -397,10 +397,10 @@ class Parser(tokens: LookaheadIterator[Token]) extends AnalysisPhase[Option[Prog
   private def parseUnaryExpression(): TailRec[Expression] = currentToken.data match {
     case Not =>
       consume()
-      tailcall(parseUnaryExpression()).map(e => Apply("!", List(e)))
+      tailcall(parseUnaryExpression()).map(e => Apply("!", List(e), isOperator=true))
     case Minus =>
       consume()
-      tailcall(parseUnaryExpression()).map(e => Apply("- (unary)", List(e)))  // totally a legit operator.
+      tailcall(parseUnaryExpression()).map(e => Apply("-", List(e), isOperator=true))
     case _ =>
       parsePostfixExpression()
   }
@@ -425,7 +425,7 @@ class Parser(tokens: LookaheadIterator[Token]) extends AnalysisPhase[Option[Prog
       tailcall(parseBinaryExpression(precedence + (if (leftAssoc) 1 else 0))).flatMap(rhs =>
         parseBinaryExpressionRhs(op match {
           case Assign => Assignment(lhs, rhs)
-          case _ =>      Apply(op.literal, List(lhs, rhs))
+          case _ =>      Apply(op.literal, List(lhs, rhs), isOperator=true)
         }, minPrecedence)
       )
     }

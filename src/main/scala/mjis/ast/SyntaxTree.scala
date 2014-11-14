@@ -37,7 +37,8 @@ final case class MethodDecl(
   name: String,
   parameters: List[Parameter],
   override val typ: TypeDef,
-  body: SyntaxTree) extends MemberDecl
+  body: SyntaxTree,
+  isMain: Boolean = false) extends MemberDecl
 
 /* `typ` `name` */
 final case class Parameter(name: String, override val typ: TypeDef) extends SyntaxTree
@@ -64,7 +65,7 @@ sealed trait Expression extends SyntaxTree
 /* `lhs` = `rhs` */
 final case class Assignment(lhs: Expression, rhs: Expression) extends Expression
 /* `name`(`args`) */
-final case class Apply(name: String, arguments: List[Expression]) extends Expression
+final case class Apply(name: String, arguments: List[Expression], isOperator: Boolean = false) extends Expression
 /* new `typ`() */
 final case class NewObject(override val typ: TypeBasic) extends Expression
 /* new `typ`[firstDimSize][]^additionalDims */
