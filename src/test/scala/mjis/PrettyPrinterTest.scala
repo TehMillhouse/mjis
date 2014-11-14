@@ -19,10 +19,10 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
   it should "collapse empty classes" in {
     prettyPrintProgram(
         """class A {}""") should succeedPrettyPrintingWith(
-            """class A { }
-               |""".stripMargin)
+        """class A { }
+           |""".stripMargin)
   }
-  
+
   it should "sort members correctly" in {
     prettyPrintProgram(
         """class A {
@@ -31,15 +31,15 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
            |  public void b() {}
            |  public int b;
            |}""".stripMargin) should succeedPrettyPrintingWith(
-               """class A {
-                  |	public void b() { }
-                  |	public void c() { }
-                  |	public int a;
-                  |	public int b;
-                  |}
-                  |""".stripMargin)
+        """class A {
+           |	public void b() { }
+           |	public void c() { }
+           |	public int a;
+           |	public int b;
+           |}
+           |""".stripMargin)
   }
-  
+
   it should "collapse else after a block" in {
     prettyPrintProgram(
         """class A {
@@ -50,16 +50,58 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
            |    else {}
            |  }
            |}""".stripMargin) should succeedPrettyPrintingWith(
-               """class A {
-                  |	public void a() {
-                  |		if (true) {
-                  |			return;
-                  |		} else { }
-                  |	}
-                  |}
-                  |""".stripMargin)
+        """class A {
+           |	public void a() {
+           |		if (true) {
+           |			return;
+           |		} else { }
+           |	}
+           |}
+           |""".stripMargin)
   }
-  
+
+  // fails because of main
+  ignore should "properly prettyprint the example from the sheet" in {
+    prettyPrintProgram(
+        """class HelloWorld
+           |{
+           |  public int c;
+           |  public boolean[] array;
+           |  public static /* blabla */ void main(String[] args)
+           |  { System.out.println( (43110 + 0) );
+           |    boolean b = true && (!false);
+           |    if (23+19 == (42+0)*1)
+           |      b = (0 < 1);
+           |    else if (!array[2+2]) {
+           |      int x = 0;;
+           |      x = x+1;
+           |    } else {
+           |      new HelloWorld().bar(42+0*1, -1);
+           |    }
+           |  }
+           |  public int bar(int a, int b) { return c = (a+b); }
+           |}""".stripMargin) should succeedPrettyPrintingWith(
+        """class HelloWorld {
+           |	public int bar(int a, int b) {
+           |		return c = (a + b);
+           |	}
+           |	public static void main(String[] args) {
+           |		(System.out).println(43110 + 0);
+           |		boolean b = true && (!false);
+           |		if ((23 + 19) == ((42 + 0) * 1))
+           |			b = (0 < 1);
+           |		else if (!(array[2 + 2])) {
+           |			int x = 0;
+           |			x = (x + 1);
+           |		} else {
+           |			(new HelloWorld()).bar(42 + (0 * 1), -1);
+           |		}
+           |	}
+           |	public boolean[] array;
+           |	public int c;
+           |}
+           |""".stripMargin)
+  }
   // main is currently not being handled correctly
   ignore should "pretty-print many fields, main methods and methods" in {
     prettyPrintProgram(
@@ -69,11 +111,11 @@ class PrettyPrinterTest extends FlatSpec with Matchers with Inspectors {
         |public int z(int j, A b) {}
         |public X[][] foo(Y[][][] y) {}
         |}""".stripMargin) should succeedPrettyPrintingWith(
-            """class C {
-               |	public X[][] foo(Y[][][] y) { }
-               |	public static void main(String[] args) { }
-               |	public int z(int j, A b) { }
-               |	public int x;
-               |}""".stripMargin)
+     """class C {
+        |	public X[][] foo(Y[][][] y) { }
+        |	public static void main(String[] args) { }
+        |	public int z(int j, A b) { }
+        |	public int x;
+        |}""".stripMargin)
   }
 }
