@@ -38,7 +38,7 @@ final case class MethodDecl(
   parameters: List[Parameter],
   override val typ: TypeDef,
   body: SyntaxTree,
-  isMain: Boolean = false) extends MemberDecl
+  isStatic: Boolean = false) extends MemberDecl
 
 /* `typ` `name` */
 final case class Parameter(name: String, override val typ: TypeDef) extends SyntaxTree

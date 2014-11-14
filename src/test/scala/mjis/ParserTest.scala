@@ -65,7 +65,7 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
   it should "accept main methods with any name" in {
     parseProgram("class C { public static void foobar(String[] args) {} }") should succeedParsingWith(Program(List(
       ClassDecl("C", List(
-        MethodDecl("foobar", List(Parameter("args", TypeArray(TypeBasic("String")))), TypeBasic("void"), Block(List()))
+        MethodDecl("foobar", List(Parameter("args", TypeArray(TypeBasic("String")))), TypeBasic("void"), Block(List()), isStatic=true)
       ), List())
     )))
   }
@@ -115,7 +115,7 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
     parseProgram("class a { public void foo ( ) { a [ 2 ] ; } }") should succeedParsingWith(Program(List(
       ClassDecl("a", List(
         MethodDecl("foo", List(), TypeBasic("void"), Block(List(
-          ExpressionStatement(Apply("[]", List(Ident("a"), IntLiteral("2"))))
+          ExpressionStatement(Apply("[]", List(Ident("a"), IntLiteral("2")), isOperator=true))
         )))
       ), List())
     )))
@@ -147,8 +147,8 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
       ThisLiteral,
       NullLiteral,
       NewObject(TypeBasic("myType")),
-      NewArray(TypeBasic("myType"), Apply("+", List(IntLiteral("3"), Ident("x"))), 2),
-      NewArray(TypeBasic("int"), Apply("+", List(IntLiteral("3"), Ident("x"))), 2)
+      NewArray(TypeBasic("myType"), Apply("+", List(IntLiteral("3"), Ident("x")), isOperator=true), 2),
+      NewArray(TypeBasic("int"), Apply("+", List(IntLiteral("3"), Ident("x")), isOperator=true), 2)
     ))
   }
 
@@ -189,12 +189,12 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
 
   it should "accept unary expressions" in {
     parseStatements("-c;\n-(-c);\n!c;\n!!c;\n!-!-c;\n!(-(!(-(c))));") should succeedParsingWith(expressionsAST(
-      Apply("- (unary)", List(Ident("c"))),
-      Apply("- (unary)", List(Apply("- (unary)", List(Ident("c"))))),
-      Apply("!", List(Ident("c"))),
-      Apply("!", List(Apply("!", List(Ident("c"))))),
-      Apply("!", List(Apply("- (unary)", List(Apply("!", List(Apply("- (unary)", List(Ident("c"))))))))),
-      Apply("!", List(Apply("- (unary)", List(Apply("!", List(Apply("- (unary)", List(Ident("c")))))))))
+      Apply("-", List(Ident("c")), isOperator=true),
+      Apply("-", List(Apply("-", List(Ident("c")), true)), true),
+      Apply("!", List(Ident("c")), true),
+      Apply("!", List(Apply("!", List(Ident("c")), true)), true),
+      Apply("!", List(Apply("-", List(Apply("!", List(Apply("-", List(Ident("c")), true)), true)), true)), true),
+      Apply("!", List(Apply("-", List(Apply("!", List(Apply("-", List(Ident("c")), true)), true)), true)), true)
     ))
   }
 
@@ -205,7 +205,7 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
 
   it should "accept binary expressions" in {
     parseStatements("a+b;a-b;a*b;a/b;a%b;a&&b;a||b;a>b;a<b;a<=b;a>=b;a==b;a!=b;") should succeedParsingWith(expressionsAST(
-      List("+", "-", "*", "/", "%", "&&", "||", ">", "<", "<=", ">=", "==", "!=").map(Apply(_, List(Ident("a"), Ident("b")))): _*
+      List("+", "-", "*", "/", "%", "&&", "||", ">", "<", "<=", ">=", "==", "!=").map(Apply(_, List(Ident("a"), Ident("b")), isOperator=true)): _*
     ))
   }
 
@@ -217,10 +217,10 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
           Apply("*", List(
             Ident("b"),
             Ident("c")
-          ))
-        )),
+          ), isOperator=true)
+        ), isOperator=true),
         Ident("d")
-      ))
+      ), isOperator=true)
     ))
   }
 
@@ -232,19 +232,20 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
             Ident("a"),
             Apply("*", List(
               Ident("b"),
-              Ident("c"))
+              Ident("c")),
+              isOperator=true
             )
-          )),
+          ), true),
           Ident("d")
-        )),
+        ), true),
         Apply(">", List(
           Ident("e"),
           Apply("*", List(
             Ident("f"),
             Ident("g")
-          ))
-        ))
-      ))
+          ), true)
+        ), true)
+      ), true)
     ))
   }
 
@@ -254,11 +255,11 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
         Apply("||", List(
           Ident("a"),
           Ident("b")
-        )),
+        ), isOperator=true),
         Apply("||", List(
           Ident("c"),
           Ident("d")
-        ))
+        ), true)
       )
     ))
   }
@@ -267,7 +268,7 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
     parseStatements("new int[5]; new int[a][][]; new a[c-(d)][];") should succeedParsingWith(expressionsAST(
       NewArray(TypeBasic("int"), IntLiteral("5"), 0),
       NewArray(TypeBasic("int"), Ident("a"), 2),
-      NewArray(TypeBasic("a"), Apply("-", List(Ident("c"), Ident("d"))), 1)
+      NewArray(TypeBasic("a"), Apply("-", List(Ident("c"), Ident("d")), isOperator=true), 1)
     ))
   }
 
@@ -281,12 +282,12 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
             Apply("[]", List(
               Ident("a"),
               Ident("b")
-            )),
+            ), isOperator=true),
             "c"
           )
         )),
         Ident("d")
-      ))
+      ), true)
     ))
   }
 
@@ -296,7 +297,7 @@ class ParserTest extends FlatSpec with Matchers with Inspectors {
 
   it should "accept array access into new arrays" in {
     parseStatements("new array[10][][1];") should succeedParsingWith(expressionsAST(
-      Apply("[]", List(NewArray(TypeBasic("array"), IntLiteral("10"), 1), IntLiteral("1")))
+      Apply("[]", List(NewArray(TypeBasic("array"), IntLiteral("10"), 1), IntLiteral("1")), isOperator=true)
     ))
   }
 

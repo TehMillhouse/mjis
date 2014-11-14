@@ -177,10 +177,9 @@ class PrettyPrinter(writer: BufferedWriter) {
     }
   }
 
-  // TODO: properly handle main method
   private def printMethodDecl(method: MethodDecl): Unit = {
         emit("public ")
-        if (method.name == "main") // hack hack hack
+        if (method.isStatic)
           emit("static ")
         printType(method.typ)
         emit(" " + method.name + "(")
