@@ -101,8 +101,8 @@ class PrettyPrinter(writer: BufferedWriter) {
           case None => ()
         }
         emit(";")
-      case Block(_) => printBlock(stmt.asInstanceOf[Block])
-      case EmptyStatement => (emit("/* ; */"))
+      case block: Block => printBlock(block)
+      case _ => ???
     }
   }
 
@@ -113,7 +113,7 @@ class PrettyPrinter(writer: BufferedWriter) {
         printExpression(lhs)
         emit(" = ")
         printExpression(rhs)
-      case Apply(_, _, _) => printApply(expr.asInstanceOf[Apply])
+      case application: Apply => printApply(application)
       case NewObject(typ) =>
         emit("new ")
         printType(typ)
