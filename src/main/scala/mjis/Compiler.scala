@@ -21,9 +21,11 @@ object Compiler {
     if (config.stopAfter == "lexer") {
       val out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(java.io.FileDescriptor.out), "ASCII"))
       lexer.dumpResult(out)
+      out.close()
     } else if (config.stopAfter == "parser") {
       val out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(java.io.FileDescriptor.out), "ASCII"))
       parser.dumpResult(out)
+      out.close()
     } else {
       parser.result // something something
     }

@@ -111,7 +111,7 @@ class Parser(tokens: LookaheadIterator[Token]) extends AnalysisPhase[Option[Prog
       val paramName = expectIdentifier()
       expectSymbol(ParenClosed)
       val block = parseBlock().result
-      MethodDecl(mainName, List(Parameter(paramName, TypeArray(TypeBasic("String")))), TypeBasic("Void"), block)
+      MethodDecl(mainName, List(Parameter(paramName, TypeArray(TypeBasic("String")))), TypeBasic("void"), block)
     } else {
       val typ = parseType()
       val ident = expectIdentifier()
@@ -136,11 +136,11 @@ class Parser(tokens: LookaheadIterator[Token]) extends AnalysisPhase[Option[Prog
   private def parseBasicType(): TypeBasic = {
     currentToken.data match {
       case IntType           =>
-        consume(); TypeBasic("Int")
+        consume(); TypeBasic("int")
       case BooleanType       =>
-        consume(); TypeBasic("Boolean")
+        consume(); TypeBasic("boolean")
       case VoidType          =>
-        consume(); TypeBasic("Void")
+        consume(); TypeBasic("void")
       case Identifier(ident) =>
         consume(); TypeBasic(ident)
       case _                 => unexpectedToken("type name")
@@ -372,7 +372,7 @@ class Parser(tokens: LookaheadIterator[Token]) extends AnalysisPhase[Option[Prog
     expectSymbol(SquareBracketOpen)
     parseExpression().map(param => {
       expectSymbol(SquareBracketClosed)
-      Apply("apply", List(e, param))
+      Apply("[]", List(e, param))
     })
   }
 
@@ -400,7 +400,7 @@ class Parser(tokens: LookaheadIterator[Token]) extends AnalysisPhase[Option[Prog
       tailcall(parseUnaryExpression()).map(e => Apply("!", List(e)))
     case Minus =>
       consume()
-      tailcall(parseUnaryExpression()).map(e => Apply("-", List(e)))
+      tailcall(parseUnaryExpression()).map(e => Apply("- (unary)", List(e)))  // totally a legit operator.
     case _ =>
       parsePostfixExpression()
   }
