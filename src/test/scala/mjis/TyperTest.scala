@@ -123,6 +123,10 @@ class TyperTest extends FlatSpec with Matchers with Inspectors {
     testProg("twoIntParams(42, true + 42);") should failTypingWith(InvalidTypeError(IntType, BooleanType))
   }
 
+  it should "typecheck System.out.println" in {
+    fromStatements("System.out.println(42);") should succeedTyping
+  }
+
   it should "typecheck the condition of an If statement" in {
     fromStatements("if (true);") should succeedTyping
     fromStatements("if (null);") should failTypingWith(InvalidTypeError(BooleanType, NullType))
