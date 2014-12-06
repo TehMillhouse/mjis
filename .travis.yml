@@ -6,3 +6,5 @@ jdk:
 env:
 # Add LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${project_loc}/lib to the exec environment in eclipse
 - LD_LIBRARY_PATH=$LD_LIBRARY_PATH:lib/
+before_script:
+- sbt assemblyPackageDependency
