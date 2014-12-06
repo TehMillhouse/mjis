@@ -132,7 +132,6 @@ trait CompilerTestMatchers {
       val env = pb.environment()
       env.put("LD_LIBRARY_PATH", env.get("LD_LIBRARY_PATH") + ":lib")
       val compilerProcess = pb.start()
-      //val compilerProcess = Runtime.getRuntime.exec(compileCmd(path), Array("LD_LIBRARY_PATH=/usr/lib/gcc/x86_64-unknown-linux-gnu/4.9.2:lib/"))
       val stderr = new BufferedReader(new InputStreamReader(compilerProcess.getErrorStream))
       compilerProcess.waitFor()
       val stream = Stream.continually(stderr.readLine()).takeWhile(_ != null)
