@@ -55,6 +55,10 @@ object FirmExtensions {
       }
     }
 
+    def successors: Iterable[Node] = {
+      BackEdges.getOuts(node).map(_.node)
+    }
+
     def idx: Int = bindings.binding_irnode.get_irn_idx(node.ptr)
 
   }

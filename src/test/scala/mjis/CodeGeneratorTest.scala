@@ -3,6 +3,7 @@ package mjis
 import firm.{Firm, Backend, Mode}
 import mjis.CompilerTestHelper._
 import mjis.CompilerTestMatchers._
+import mjis.opt._
 import org.scalatest._
 
 class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
@@ -158,7 +159,8 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
         |  movq (%REG1{8}), %REG2{8}
         |  movq %REG2{8}, %rax
         |.L1:
-        |  ret"""))
+        |  ret"""),
+      excludedOptimizations = Set(Inlining))
   }
 
   it should "generate code for member stores" in {
@@ -183,7 +185,8 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
         |  movq $0, (%REG1{8})
         |  movq %REG0{8}, %rax
         |.L1:
-        |  ret"""))
+        |  ret"""),
+      excludedOptimizations = Set(Inlining))
   }
 
   it should "generate code for a method call" in {
@@ -204,7 +207,8 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
         |  movl %eax, %REG3{4}
         |  movl %REG3{4}, %eax
         |.L3:
-        |  ret"""))
+        |  ret"""),
+      excludedOptimizations = Set(Inlining))
   }
 
   it should "generate code for System.out.println" in {
@@ -228,7 +232,8 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
         |  movq %REG0{8}, %rdi
         |  call _4Test_foo
         |.L1:
-        |  ret"""))
+        |  ret"""),
+    excludedOptimizations = Set(Inlining))
   }
 
   it should "generate code for Phis" in {
@@ -262,7 +267,8 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
         |.L2:
         |  movl $1, %eax
         |.L3:
-        |  ret"""))
+        |  ret"""),
+    excludedOptimizations = Set(Inlining))
   }
 
   it should "generate good loop code" in {
@@ -295,7 +301,8 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
       |.L6:
       |  movb $1, %al
       |.L7:
-      |  ret"""))
+      |  ret"""),
+      excludedOptimizations = Set(Inlining))
   }
 
   it should "generate code for a trivial infinite loop" in {

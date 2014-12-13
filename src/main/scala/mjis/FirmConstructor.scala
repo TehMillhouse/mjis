@@ -21,6 +21,11 @@ final case class Value(node: Node) extends ExprResult
 // block has only one outgoing edge
 final case class ControlFlow(falseJmps: List[Node], trueJmps: List[Node]) extends ExprResult
 
+object FirmConstructor {
+  val calledMethods = new mutable.HashMap[Call, firm.Entity]()
+  def calledGraph(call: Call): Option[Graph] = calledMethods.get(call).flatMap(x => Some(x.getGraph))
+}
+
 class FirmConstructor(input: Program) extends Phase[Unit] {
   private val firmClassEntity = new mutable.HashMap[ClassDecl, firm.Entity]()
   private val firmFieldEntity = new mutable.HashMap[FieldDecl, firm.Entity]()
@@ -362,6 +367,7 @@ class FirmConstructor(input: Program) extends Phase[Unit] {
       val methodType = methodEntity.getType.asInstanceOf[MethodType]
       val addr = constr.newAddress(methodEntity)
       val call = constr.newCall(constr.getCurrentMem, addr, args, methodEntity.getType)
+      FirmConstructor.calledMethods += call.asInstanceOf[Call] -> methodEntity
       constr.setCurrentMem(constr.newProj(call, Mode.getM, firm.nodes.Call.pnM))
       // libFirm *really* doesn't like us trying to access void
       if (methodType.getNRess > 0) {
