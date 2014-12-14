@@ -2,9 +2,10 @@ package mjis
 
 import java.io.{FileWriter, InputStreamReader, BufferedReader, BufferedWriter}
 
-import firm.{Util, Backend}
+import firm.{Program, Util, Backend}
 
 import scala.io.Source
+import scala.collection.JavaConversions._
 
 class CodeGenerator(a: Unit) extends Phase[Unit] {
   def findings = List()
@@ -12,6 +13,8 @@ class CodeGenerator(a: Unit) extends Phase[Unit] {
     Source.fromFile("a.s").foreach(a.write(_))
   }
   def getResult(): Unit = {
+    Program.getGraphs.foreach(_.check())
+
     val asm = "a.s"
     Util.lowerSels()
     Backend.createAssembler(asm, "<input>")
