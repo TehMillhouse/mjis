@@ -111,6 +111,9 @@ object Inlining extends Optimization(needsBackEdges = true) {
       })
     }
 
+    // The caller must be intact when we copy the callee's nodes -- caller and callee may be the same graph
+    // (inlined recursive calls). For that reason we "fix" the graph temporarily.
+    // TODO we could just check for recursive calls
     val jmp = graph.newJmp(newBlock)
     oldBlock.setPreds(Array(jmp))
 
@@ -132,19 +135,19 @@ object Inlining extends Optimization(needsBackEdges = true) {
       val jmp = graph.newJmp(node.getBlock)
       jmps += jmp
     }
-    // when creating memory phis, the number of predecessors of this block must match with the number of phi inputs
-    postCallBlock.asInstanceOf[Block].setPreds(jmps.toArray)
+    // when creating memory phis, the number of predecessors of this block must match the number of phi inputs
+    postCallBlock.setPreds(jmps.toArray)
 
-    // wire up arguments
+    // wire up arguments. The `+ 2` is to skip the call's first two predecessors: its function address and memory node.
     copy.argEdges.foreach({ case (from, to) => redirectEdge(from, to, call.getPred(to.asInstanceOf[Proj].getNum + 2)) })
 
     // wire up start memory state
     val callMem = call.getPred(0)
-    copy.startMemEdges.foreach({ case (from: Node, to: Node) => redirectEdge(from, to, callMem) })
+    copy.startMemEdges.foreach({ case (from, to) => redirectEdge(from, to, callMem) })
 
     // wire up end memory state
-    val phis = copy.returnNodes.map(_.getPred(0)).toArray
-    val memPhi = if (phis.length == 0) graph.newBad(Mode.getM) else graph.newPhi(postCallBlock, phis, Mode.getM)
+    val endMemNodes = copy.returnNodes.map(_.getPred(0)).toArray
+    val memPhi = if (endMemNodes.length == 0) graph.newBad(Mode.getM) else graph.newPhi(postCallBlock, endMemNodes, Mode.getM)
     val callMProj = call.successors.filter(_.getMode == Mode.getM).head
     callMProj.successors.foreach(n => {
       redirectEdge(n, callMProj, memPhi)
@@ -153,9 +156,8 @@ object Inlining extends Optimization(needsBackEdges = true) {
     // wire up return value
     val returnVals = copy.returnNodes.flatMap(_.getPreds).filter(_.getMode != Mode.getM).toList
     if (returnVals.nonEmpty) {
-      val returnMode = returnVals.head.getMode
-      val inlinedResultPhi: Node = if (returnVals.length > 1)
-          graph.newPhi(postCallBlock, returnVals.toArray[Node], returnMode)
+      val inlinedResultNode: Node = if (returnVals.length > 1)
+          graph.newPhi(postCallBlock, returnVals.toArray[Node], returnVals.head.getMode)
         else
           returnVals.head
       // get the result tuple node of the original call
@@ -167,7 +169,7 @@ object Inlining extends Optimization(needsBackEdges = true) {
           val callResult = tuple.successors.head
           val resultUsers = callResult.successors
           for ((node, idx) <- resultUsers.zipWithIndex)
-            redirectEdge(node, callResult, inlinedResultPhi)
+            redirectEdge(node, callResult, inlinedResultNode)
       }
     }
 

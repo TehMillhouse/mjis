@@ -13,18 +13,19 @@ private class NodeCloner (caller: Graph, callee: Graph) extends NodeVisitor.Defa
   private val backEdgesWereDisabled = !BackEdges.enabled(callee)
   var calleeStart: Node = null
   var copiedStartBlock: Block = null
+  // Edges (in form of tuples) from each usage of an argument to its corresponding Proj node below the argument tuple
   val argEdges: ListBuffer[(Node, Node)] = ListBuffer()
   var startMemEdges: Iterable[(Node, Node)] = null
   val returnNodes: ListBuffer[Return] = ListBuffer()
   var keepaliveNodes: Iterable[Node] = null
   private val copies: Map[Node, Node] = HashMap[Node, Node]().withPersistentDefault {
-      case _: NoMem =>
-        caller.getNoMem
-      case node@(_: Block | _: Anchor) => caller.copyNode(node)
-      case node =>
-        val newNode = caller.copyNode(node)
-        newNode.setBlock(copies(node.getBlock))
-        newNode
+    case _: NoMem =>
+      caller.getNoMem
+    case node@(_: Block | _: Anchor) => caller.copyNode(node)
+    case node =>
+      val newNode = caller.copyNode(node)
+      newNode.setBlock(copies(node.getBlock))
+      newNode
   }
 
   if (backEdgesWereDisabled)
@@ -32,12 +33,10 @@ private class NodeCloner (caller: Graph, callee: Graph) extends NodeVisitor.Defa
 
   def finish() = {
     // Now that all nodes were copied, get information we'll need for rewiring the inlined method
-    val start = callee.getStart
-    val startMem = start.successors.find(_.getMode == Mode.getM).get
+    val startMem = callee.getInitialMem
     startMemEdges = startMem.successors.map(e => (copies(e), copies(startMem)))
 
-    val argT = start.successors.find(_.getMode == Mode.getT).get
-    argT.successors.foreach(arg =>
+    callee.getArgs.successors.foreach(arg =>
       if (!arg.isInstanceOf[Anchor])
         argEdges ++= arg.successors.map(user => (copies(user), copies(arg)))
     )
