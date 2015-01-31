@@ -10,7 +10,7 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable
 
 
-object Inlining extends Optimization(true) {
+object Inlining extends Optimization(needsBackEdges = true) {
 
   /* We have to take special care not to upset libFirm too much in this step. Certain unwritten assumptions that firm
      has about graphs:
@@ -28,7 +28,7 @@ object Inlining extends Optimization(true) {
 
   // TODO recursive inlining, max depth
   def inlineCalls(graph: Graph) = {
-    val calls = mutable.ListBuffer.empty[Call]
+    val calls = mutable.ListBuffer[Call]()
     // collect all calls in first visit
     // TODO remove this once we have a proper call graph data structure
     graph.walk(new NodeVisitor.Default {
@@ -58,9 +58,8 @@ object Inlining extends Optimization(true) {
       // callee is null in calls to stdlib functions (e.g. calloc, System.out.println)
       case None => false
       case Some(graph) =>
-        if (graph == null) false
         // Graph.getLastIdx should give us the number of nodes constructed in the graph
-        else if (graph.getLastIdx <= maxNodeNum) true
+        if (graph.getLastIdx <= maxNodeNum) true
         else {
           var nodeNum = 0
           // since optimizations may remove nodes, we still have to actually count them
@@ -75,31 +74,34 @@ object Inlining extends Optimization(true) {
     }
   }
 
-  private def redirect(from: Node, to: Node, newTo: Node): Unit = {
-    val edges = from.getPreds.zipWithIndex.toList.filter{ case (n, idx) => n == to }
-    edges.foreach{ case (n, idx) => from.setPred(idx, newTo) }
-    if (from.isInstanceOf[Proj]) from.setBlock(newTo.getBlock)
-    // To keep libFirm from complaining. Shouldn't hurt code generation if this is disabled though
-    from.successors.filter(_.isInstanceOf[Proj]).map(_.setBlock(from.getBlock))
-  }
-
-  private def moveNodes(node: Node, oldBlock: Node, newBlock: Node): Unit = {
-    if (node.getBlock == oldBlock) {
-      node.setBlock(newBlock)
-      node.getPreds.foreach(n => moveNodes(n, oldBlock, newBlock))
+  /** redirects the edge `from`-->`to` to `from`-->`newTo` */
+ private def redirectEdge(from: Node, to: Node, newTo: Node): Unit = {
+    val edgeIdcs = from.getPreds.zipWithIndex.toList.collect{ case (`to`, idx) => idx }
+    edgeIdcs.foreach(from.setPred(_, newTo))
+    if (from.isInstanceOf[Proj]) {
+      from.setBlock(newTo.getBlock)
+      // To keep libFirm from complaining. Shouldn't hurt code generation if this is disabled though
+      from.successors.filter(_.isInstanceOf[Proj]).map(_.setBlock(from.getBlock))
     }
   }
 
-  // Moves the "upper" part of the `node`'s block to a new block. Does not redirect control flow to oldBlock
+  private def moveNodesAndPreds(node: Node, oldBlock: Node, newBlock: Node): Unit = {
+    if (node.getBlock == oldBlock) {
+      node.setBlock(newBlock)
+      node.getPreds.foreach(n => moveNodesAndPreds(n, oldBlock, newBlock))
+    }
+  }
+
+  // Moves the "upper" part of the `node`'s block to a new block.
   // Must keep validity of the CFG invariant, as inlining will happen right after this step
   private def splitBlockAlong(node: Node): (Block, Block) = {
-    val oldBlock = node.getBlock.asInstanceOf[Block]
-    val newBlock = node.getGraph.newBlock(oldBlock.getPreds.toArray).asInstanceOf[Block]
-
-    moveNodes(node, oldBlock, newBlock)
+    val oldBlock = node.block
     val graph = node.getGraph
+    val newBlock = graph.newBlock(oldBlock.getPreds.toArray).asInstanceOf[Block]
+
+    moveNodesAndPreds(node, oldBlock, newBlock)
     if (graph.getStartBlock == oldBlock) {
-      graph.setStartBlock(newBlock.asInstanceOf[firm.nodes.Block])
+      graph.setStartBlock(newBlock)
       graph.getNoMem.setBlock(graph.getStartBlock)
       // an unreachable parameter proj or const node may be lurking in the old start block.
       oldBlock.successors.foreach({
@@ -134,18 +136,18 @@ object Inlining extends Optimization(true) {
     postCallBlock.asInstanceOf[Block].setPreds(jmps.toArray)
 
     // wire up arguments
-    copy.argEdges.foreach({ case (from, to) => redirect(from, to, call.getPred(to.asInstanceOf[Proj].getNum + 2)) })
+    copy.argEdges.foreach({ case (from, to) => redirectEdge(from, to, call.getPred(to.asInstanceOf[Proj].getNum + 2)) })
 
     // wire up start memory state
     val callMem = call.getPred(0)
-    copy.startMemEdges.foreach({ case (from: Node, to: Node) => redirect(from, to, callMem) })
+    copy.startMemEdges.foreach({ case (from: Node, to: Node) => redirectEdge(from, to, callMem) })
 
     // wire up end memory state
     val phis = copy.returnNodes.map(_.getPred(0)).toArray
     val memPhi = if (phis.length == 0) graph.newBad(Mode.getM) else graph.newPhi(postCallBlock, phis, Mode.getM)
     val callMProj = call.successors.filter(_.getMode == Mode.getM).head
     callMProj.successors.foreach(n => {
-      redirect(n, callMProj, memPhi)
+      redirectEdge(n, callMProj, memPhi)
     })
 
     // wire up return value
@@ -165,7 +167,7 @@ object Inlining extends Optimization(true) {
           val callResult = tuple.successors.head
           val resultUsers = callResult.successors
           for ((node, idx) <- resultUsers.zipWithIndex)
-            redirect(node, callResult, inlinedResultPhi)
+            redirectEdge(node, callResult, inlinedResultPhi)
       }
     }
 
@@ -177,7 +179,7 @@ object Inlining extends Optimization(true) {
       override def visit(addr: Address) = addr.setBlock(startBlock)
       override def visit(proj: Proj) = {
         defaultVisit(proj)
-        proj.setBlock(proj.getPred(0).getBlock.asInstanceOf[Block])
+        proj.setBlock(proj.getPred(0).block)
       }
     })
 

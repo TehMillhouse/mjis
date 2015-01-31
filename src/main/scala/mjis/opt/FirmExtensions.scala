@@ -51,7 +51,7 @@ object FirmExtensions {
       if (ent == null)
         None
       else
-        Some(ent.getGraph)
+        Option(ent.getGraph)
     }
   }
 
