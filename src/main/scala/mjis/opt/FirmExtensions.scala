@@ -45,6 +45,16 @@ object FirmExtensions {
 
   }
 
+  implicit class CallExt(call: Call) {
+    def getCalledGraph: Option[Graph] = {
+      val ent = call.getPtr.asInstanceOf[Address].getEntity
+      if (ent == null)
+        None
+      else
+        Some(ent.getGraph)
+    }
+  }
+
   implicit class NodeExt(node: Node) {
 
     def block: Block = node match {

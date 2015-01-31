@@ -211,6 +211,69 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
       excludedOptimizations = Set(Inlining))
   }
 
+  it should "properly inline a trivial call" in {
+    fromMembers("public void foo() { bar(); } public void bar() { System.out.println(42); }") should succeedGeneratingCodeWith(template(
+    """_4Test_foo:
+      |.L0:
+      |.L1:
+      |  movl $42, %edi
+      |  call System_out_println
+      |.L2:
+      |.L3:
+      |  ret
+      |
+      |_4Test_bar:
+      |.L4:
+      |  movl $42, %edi
+      |  call System_out_println
+      |.L5:
+      |  ret"""))
+  }
+
+  it should "properly inline recursive calls" in {
+    val blockSize = 20
+    fromMembers(
+      ("""
+        |public boolean foo() {
+        |  int i = 42;
+        |  if (foo()) {""" + "System.out.println(i);" * blockSize + """
+        |  }
+        |  return true;
+        |}
+      """).stripMargin) should succeedGeneratingCodeWith(template(
+      """_4Test_foo:
+        |  movq %rdi, %REG0{8}
+        |.L0:
+        |.L1:
+        |	movq %REG0{8}, %rdi
+        |	call _4Test_foo
+        |	movb %al, %REG1{1}
+        |.L2:
+        |	cmpb $1, %REG1{1}
+        |	je .L4
+        |.L3:
+        |	jmp .L5
+        |.L4:
+      """
+        +
+      """|  movl $42, %edi
+         |  call System_out_println
+      """ * blockSize +
+      """|.L5:
+         |.L6:
+         |.L7:
+      """
+        +
+      """|  movl $42, %edi
+         |  call System_out_println
+      """ * blockSize +
+      """|.L8:
+         |  movb $1, %al
+         |.L9:
+         |  ret"""))
+
+  }
+
   it should "generate code for System.out.println" in {
     fromMembers("public void foo() { System.out.println(42); }") should succeedGeneratingCodeWith(template(
       """_4Test_foo:

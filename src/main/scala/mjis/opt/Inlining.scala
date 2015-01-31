@@ -34,17 +34,18 @@ object Inlining extends Optimization(true) {
     graph.walk(new NodeVisitor.Default {
       override def visit(call: Call) = {calls += call}
     })
-    calls.foreach(x =>
-      if (shouldInline(x)) {
-        val (preCallBlock, postCallBlock) = splitBlockAlong(x)
-        val copy = FirmConstructor.calledGraph(x).map(callee => {
+    calls.foreach(call =>
+      if (shouldInline(call)) {
+        changed = true
+        val (preCallBlock, postCallBlock) = splitBlockAlong(call)
+        val copy = call.getCalledGraph.map(callee => {
           val cloner = new NodeCloner (graph, callee)
           callee.walkTopological(cloner)
           cloner.finish()
           cloner
         }).get
 
-        rewire(x, copy, preCallBlock, postCallBlock)
+        rewire(call, copy, preCallBlock, postCallBlock)
       }
     )
   }
@@ -53,7 +54,7 @@ object Inlining extends Optimization(true) {
   private def maxNodeNum = 100
 
   def shouldInline(call: Call): Boolean = {
-    FirmConstructor.calledGraph(call) match {
+    call.getCalledGraph match {
       // callee is null in calls to stdlib functions (e.g. calloc, System.out.println)
       case None => false
       case Some(graph) =>
