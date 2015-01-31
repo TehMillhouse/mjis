@@ -165,13 +165,10 @@ trait CompilerTestMatchers {
       assertExec[FirmConstructor](code)
 
       val opt = new Optimizer(())
-      val allowedFirstPassOptimizations = (opt.highLevelOptimizations ++ opt.generalOptimizations).filter(!excludedOptimizations.contains(_))
-      val allowedGeneralOptimizations = opt.generalOptimizations.filter(!excludedOptimizations.contains(_))
+      opt.generalOptimizations = opt.generalOptimizations.filter(!excludedOptimizations.contains(_))
+      opt.highLevelOptimizations = opt.highLevelOptimizations.filter(!excludedOptimizations.contains(_))
 
-      opt.exec(allowedFirstPassOptimizations)
-      Util.lowerSels()
-      opt.exec(allowedGeneralOptimizations)
-      firm.Program.getGraphs.foreach(opt.removeCriticalEdges)
+      opt.result
 
       val codeGenerator = new CodeGenerator(())
       codeGenerator.getResult

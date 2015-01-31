@@ -27,8 +27,8 @@ class Optimizer(input: Unit) extends Phase[Unit] {
           }
   }
 
-  val highLevelOptimizations = List(LoopStrengthReduction, RedundantLoadElimination, Inlining)
-  val generalOptimizations = List(
+  var highLevelOptimizations = List(LoopStrengthReduction, RedundantLoadElimination, Inlining)
+  var generalOptimizations = List(
     ConstantFolding, Normalization, CommonSubexpressionElimination, TrivialPhiElimination, Identities)
 
   def exec(optimizations: List[Optimization]): Unit = {
