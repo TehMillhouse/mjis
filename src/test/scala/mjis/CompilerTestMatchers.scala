@@ -172,7 +172,6 @@ trait CompilerTestMatchers {
       opt.result
 
       val codeGenerator = new CodeGenerator(())
-      codeGenerator.getResult
 
       // add jumps
       val program = new BlockOrdering(codeGenerator.result).result

@@ -2,6 +2,7 @@ package mjis.opt
 
 import firm._
 import firm.nodes._
+import mjis.CallGraph
 import mjis.opt.FirmExtensions._
 
 import scala.collection.JavaConversions._
@@ -22,8 +23,9 @@ object Inlining extends Optimization(needsBackEdges = true) {
 
   override def optimize(): Boolean = {
     var changed = false
+    val graphs = CallGraph.graphsInTopologicalOrder
     for (_ <- 0 until maxDepth)
-      changed = Program.getGraphs.map(optimize).toList.exists(b => b) || changed
+      changed = graphs.map(optimize).toList.exists(b => b) || changed
     changed
   }
 
@@ -33,15 +35,8 @@ object Inlining extends Optimization(needsBackEdges = true) {
 
   private val maxDepth = 3
 
-  // TODO ordered inlining, without relying on Optimizer not throwing us into an infinite loop
   def inlineCalls(graph: Graph) = {
-    val calls = mutable.ListBuffer[Call]()
-    // collect all calls in first visit
-    // TODO remove this once we have a proper call graph data structure
-    graph.walk(new NodeVisitor.Default {
-      override def visit(call: Call) = {calls += call}
-    })
-    calls.foreach(call =>
+    CallGraph.calls(graph).foreach(call =>
       if (shouldInline(call)) {
         changed = true
         val (preCallBlock, postCallBlock) = splitBlockAlong(call)
@@ -63,8 +58,10 @@ object Inlining extends Optimization(needsBackEdges = true) {
       // callee is null in calls to stdlib functions (e.g. calloc, System.out.println)
       case None => false
       case Some(graph) =>
+        // There's little point in inlining calls to recursive methods
+        if (graph != call.getGraph && CallGraph.isRecursive(graph)) false
         // Graph.getLastIdx should give us the number of nodes constructed in the graph
-        if (graph.getLastIdx <= maxNodeNum) true
+        else if (graph.getLastIdx <= maxNodeNum) true
         else
           // since optimizations may remove nodes, we still have to actually count them
           // TODO DCE so we don't count dead code

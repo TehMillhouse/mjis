@@ -25,16 +25,16 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
     Firm.finish()
   }
 
-  def template(code: String) =
-    s"""  .text
+  def template(code: String, mainMethod: Boolean = true) =
+    (s"""  .text
       |
       |$code
-      |
+      |""" + (if (mainMethod) """
       |__main:
       |.L9000:
       |.L9001:
       |  ret
-      |""".replace("  ", "\t").stripMargin
+      |""" else "")).replace("  ", "\t").stripMargin
 
   "The code generator" should "generate code for a simple method" in {
     fromMembers("public int foo() { return 42; }") should succeedGeneratingCodeWith(template(
@@ -253,65 +253,76 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   it should "properly inline a trivial call" in {
-    fromMembers("public void foo() { bar(); } public void bar() { System.out.println(42); }") should succeedGeneratingCodeWith(template(
-    """_4Test_foo:
-      |.L0:
-      |.L1:
-      |  movl $42, %edi
-      |  call System_out_println
-      |.L2:
-      |.L3:
-      |  ret
+    fromMembers(
+      """public static void main(String[] args) { new Test().foo(); }
+        |public void foo() { System.out.println(42); }""".stripMargin, mainMethod = false) should succeedGeneratingCodeWith(template(
+    """__main:
+      |.L6:
+      |	movl $1, %edi
+      |	movl $0, %esi
+      |	call calloc
+      |	movq %rax, %REG0{8}
+      |.L8:
+      |	movl $42, %edi
+      |	call System_out_println
+      |.L9:
+      |.L10:
+      |	ret
       |
-      |_4Test_bar:
-      |.L4:
+      |_4Test_foo:
+      |.L0:
       |  movl $42, %edi
       |  call System_out_println
-      |.L5:
-      |  ret"""))
+      |.L3:
+      |  ret""", mainMethod = false))
   }
 
   it should "properly inline recursive calls" in {
-    val blockSize = 20
     fromMembers(
       ("""
+        |public static void main(String[] args) { new Test().foo(); }
         |public boolean foo() {
-        |  int i = 42;
-        |  if (foo()) {""" + "System.out.println(i);" * blockSize + """
+        |  if (foo()) { System.out.println(42);
         |  }
         |  return true;
         |}
-      """).stripMargin) should succeedGeneratingCodeWith(template(
-      """_4Test_foo:
-        |  movq %rdi, %REG0{8}
-        |.L0:
-        |.L1:
-        |	movq %REG0{8}, %rdi
-        |	call _4Test_foo
-        |	movb %al, %REG1{1}
-        |.L2:
-        |	cmpb $1, %REG1{1}
-        |	je .L4
-        |.L3:
-        |	jmp .L5
-        |.L4:
-      """
-        +
-      """|  movl $42, %edi
-         |  call System_out_println
-      """ * blockSize +
-      """|.L5:
+      """).stripMargin, mainMethod=false) should succeedGeneratingCodeWith(template(
+      """__main:
+         |.L0:
+         |	movl $1, %edi
+         |	movl $0, %esi
+         |	call calloc
+         |	movq %rax, %REG0{8}
+         |	movq %REG0{8}, %rdi
+         |	call _4Test_foo
+         |	movb %al, %REG1{1}
+         |.L1:
+         |	ret
+         |
+         |_4Test_foo:
+         |	movq %rdi, %REG2{8}
+         |.L2:
+         |.L3:
+         |	movq %REG2{8}, %rdi
+         |	call _4Test_foo
+         |	movb %al, %REG3{1}
+         |.L4:
+         |	cmpb $1, %REG3{1}
+         |	je .L6
+         |.L5:
+         |	jmp .L7
          |.L6:
+         |	movl $42, %edi
+         |	call System_out_println
          |.L7:
-      """
-        +
-      """|  movl $42, %edi
-         |  call System_out_println
-      """ * blockSize +
-      """|.L8:
-         |  movb $1, %al
+         |.L8:
          |.L9:
-         |  ret"""))
+         |	movl $42, %edi
+         |	call System_out_println
+         |.L10:
+         |	movb $1, %al
+         |.L11:
+         |  ret""", mainMethod=false))
 
   }
 
