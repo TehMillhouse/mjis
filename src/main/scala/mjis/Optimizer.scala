@@ -32,7 +32,7 @@ class Optimizer(input: Unit, config: Config) extends Phase[Unit] {
     ConstantFolding, Normalization, CommonSubexpressionElimination, TrivialPhiElimination, Identities)
   // The following optimizations mustn't be iterated with other optimizations
   // because of possible interactions leading to infinite loops
-  var volatileOptimizations = if (config.inlining) List(Inlining) else List()
+  var volatileOptimizations = if (config.inlining) List(Inlining, LoopUnrolling) else List(LoopUnrolling)
 
   def exec(optimizations: List[Optimization]): Unit = {
     // always run all optimizations
