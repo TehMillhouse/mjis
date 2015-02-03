@@ -56,11 +56,6 @@ class Digraph[V](val edges: Map[V, Seq[V]]) {
       SCCLoop[V](dominator, tree.getSCCTree(dominator))
   }
 
-  def containsSCCLoops(node: SCCTreeNode[V], root: V): Boolean = node match {
-    case _: SCCLeaf[V] => false
-    case loop: SCCLoop[V] => loop.dominator == root || loop.tree.exists(n => containsSCCLoops(n, root))
-  }
-
   def getCondensationGraph(components: Seq[SCCTreeNode[V]]): Digraph[SCCTreeNode[V]] = {
     val componentOfBlock = components.flatMap(c => c.nodes.map(_ -> c)).toMap
     def outEdges(c: SCCTreeNode[V]): Seq[SCCTreeNode[V]] =
