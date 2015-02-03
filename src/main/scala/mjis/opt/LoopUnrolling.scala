@@ -4,9 +4,11 @@ import firm._
 import firm.nodes._
 
 import mjis.opt.FirmExtensions._
+import mjis.util.MapExtensions._
 import mjis.util._
 
 import scala.collection.mutable
+import scala.collection.JavaConversions._
 
 object LoopUnrolling extends Optimization(needsBackEdges = true) {
 
@@ -20,8 +22,10 @@ object LoopUnrolling extends Optimization(needsBackEdges = true) {
       case loop: SCCLoop[Block] => InnermostLoops(loop.tree, IVBlocks)
     }).flatten
 
+
+  private val maxLoopNodeNum = 30
   def shouldUnroll(loop: Seq[Block]): Boolean = {
-    loop.map(BackEdges.getNOuts(_)).sum < 30
+    loop.map(BackEdges.getNOuts(_)).sum < maxLoopNodeNum
   }
 
   override def _optimize(graph: Graph): Unit = {
@@ -31,8 +35,26 @@ object LoopUnrolling extends Optimization(needsBackEdges = true) {
     val successorBlocks = graph.getBlockGraph.transposed
     val SCCTree = successorBlocks.getSCCTree(graph.getStartBlock)
     val innerLoops = InnermostLoops(SCCTree, inductionVars.map(_.value.getBlock.asInstanceOf[Block]))
-    innerLoops.foreach(l => println(shouldUnroll(l.tree.map(_.nodes).flatten)))
+    val unrollLoops = innerLoops.filter(l => shouldUnroll(l.tree.collect({
+      case b if !b.nodes.contains(l.dominator) => b.nodes
+    }).flatten))
 
-
+    println(unrollLoops)
+    copyBlocks(unrollLoops.map(l => l.dominator))
    }
+
+  private def copyBlocks(blocks: Seq[Block]): mutable.Map[Node, Node] = {
+    val copies = mutable.HashMap[Node, Node]().withPersistentDefault({ n =>
+      if (n.getBlock == null || blocks.contains(n.getBlock))
+        n.getGraph.copyNode(n)
+      else
+        n
+    })
+    blocks.foreach(block => {
+      block.successors.foreach(n => {
+        copies(n).getPreds.zipWithIndex.foreach({case (pred, idx) => copies(n).setPred(idx, copies(pred))})
+      })
+    })
+    copies
+  }
 }
