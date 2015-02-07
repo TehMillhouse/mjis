@@ -117,6 +117,13 @@ object FirmExtractors {
     }
   }
 
+  object MemberExtr {
+    def unapply(node: Node): Option[(Node, Entity)] = node match {
+      case member: Member => Some((member.getPtr, member.getEntity))
+      case _ => None
+    }
+  }
+
   object SelExtr {
     /** Some(ptr, idx) or None */
     def unapply(node: Node): Option[(Node, Node)] = node match {

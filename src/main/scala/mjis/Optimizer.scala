@@ -50,9 +50,7 @@ class Optimizer(input: Unit, config: Config = Config()) extends Phase[Unit] {
       bindings.binding_irgopt.remove_unreachable_code(g.ptr)
     })
     volatileOptimizations.foreach(_.optimize())
-    exec(highLevelOptimizations)
-    Util.lowerSels()
-    exec(generalOptimizations)
+    exec(generalOptimizations ++ highLevelOptimizations)
 
     Program.getGraphs.foreach(removeCriticalEdges)
     Program.getGraphs.foreach(g => {

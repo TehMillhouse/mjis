@@ -3,7 +3,7 @@ package mjis
 import java.io._
 
 import firm._
-import firm.nodes.{Bad, Node, Block}
+import firm.nodes.{Bad, Block, Node}
 import mjis.asm._
 import mjis.opt.FirmExtractors._
 import mjis.opt.FirmExtensions._
@@ -187,6 +187,42 @@ class CodeGenerator(a: Unit) extends Phase[AsmProgram] {
 
     private def createValue(node: Node): Seq[Instruction] = {
       def getAddressOperand(node: Node, sizeBytes: Int): AddressOperand = node match {
+        case n: nodes.Member =>
+          toVisit += n.getPtr
+          AddressOperand(
+            base = Some(getOperand(n.getPtr).asInstanceOf[RegisterOperand]),
+            offset = n.getEntity.getOffset,
+            sizeBytes = sizeBytes)
+        case n@SelExtr(base, i@ConstExtr(c)) =>
+          val opBase = base match {
+            case _: nodes.Const => None
+            case _ => Some(getOperand(base, forceRegister = true).asInstanceOf[RegisterOperand])
+          }
+          toVisit += base
+          val elemSize = n.asInstanceOf[nodes.Sel].getType.asInstanceOf[firm.ArrayType].getElementType.getSizeBytes
+          try {
+            AddressOperand(
+              base = opBase,
+              offset = Math.multiplyExact(c, elemSize),
+              sizeBytes = sizeBytes)
+          } catch {
+            case _: ArithmeticException => // offset calculation overflows, we can't encode that as an offset
+              AddressOperand(
+                base = opBase,
+                indexAndScale = Some((regOp(i), elemSize)),
+                sizeBytes = sizeBytes)
+          }
+        case n@SelExtr(base, index) =>
+          val elemSize = n.asInstanceOf[nodes.Sel].getType.asInstanceOf[firm.ArrayType].getElementType.getSizeBytes
+          val opBase = base match {
+            case _: nodes.Const => None
+            case _ => Some(getOperand(base, forceRegister = true).asInstanceOf[RegisterOperand])
+          }
+          toVisit ++= Seq(base, index)
+          AddressOperand(
+            base = opBase,
+            indexAndScale = Some((getOperand(index, forceRegister = true).asInstanceOf[RegisterOperand], elemSize)),
+            sizeBytes = sizeBytes)
         case AddExtr(base, ConstExtr(offset)) =>
           toVisit += base
           AddressOperand(
@@ -301,26 +337,46 @@ class CodeGenerator(a: Unit) extends Phase[AsmProgram] {
 
         case n: nodes.Add => Seq(Lea(getAddressOperand(n, n.getMode.getSizeBytes), regOp(n)))
 
+        case n: nodes.Sel =>
+          // This only happens in the case of Loop Strength Reduction, which inserts Pointer Phis.
+          Seq(Lea(getAddressOperand(n, n.getMode.getSizeBytes), regOp(n)))
+
         case n: nodes.Load =>
           toVisit ++= Seq(n.getMem)
           n.getPtr match {
-            case _: nodes.Const | _: nodes.Unknown =>
-              // null or undefined access
+            case MemberExtr(_: nodes.Unknown, _)
+                 | SelExtr(_: nodes.Unknown, _)
+                 | MemberExtr(_: nodes.Const, _)
+                 | SelExtr(_: nodes.Const, _) =>
+              val ptr = n.getPtr match {
+                // this will technically generate wrong code, i.e. null accesses instead of member accesses to null objects
+                // but that's a very "well, actually" kind of problem
+                case member: nodes.Member => member.getPtr
+                case sel: nodes.Sel => sel.getPtr
+                case _ => n.getPtr
+              }
               Seq(
-                Mov(getOperand(n.getPtr), regOp(n.getPtr)),
-                Mov(AddressOperand(base = Some(regOp(n.getPtr)), sizeBytes = n.getLoadMode.getSizeBytes), regOp(n))
-              )
+                Mov(getOperand(ptr), regOp(ptr)),
+                Mov(AddressOperand(base = Some(regOp(ptr)), sizeBytes = n.getLoadMode.getSizeBytes), regOp(n)))
             case _ => Seq(Mov(getAddressOperand(n.getPtr, n.getLoadMode.getSizeBytes), regOp(n)))
           }
         case n: nodes.Store =>
           toVisit ++= Seq(n.getMem, n.getValue)
           n.getPtr match {
-            case _: nodes.Const | _: nodes.Unknown =>
+            case MemberExtr(_: nodes.Unknown, _)
+                 | SelExtr(_: nodes.Unknown, _)
+                 | MemberExtr(_: nodes.Const, _)
+                 | SelExtr(_: nodes.Const, _) =>
               // null or undefined access
+              val ptr = n.getPtr match {
+                // see above
+                case member: nodes.Member => member.getPtr
+                case sel: nodes.Sel => sel.getPtr
+                case _ => n.getPtr
+              }
               Seq(
-                Mov(getOperand(n.getPtr), regOp(n.getPtr)),
-                Mov(getOperand(n.getValue), AddressOperand(base = Some(regOp(n.getPtr)), sizeBytes = n.getType.getSizeBytes))
-              )
+                Mov(getOperand(ptr), regOp(ptr)),
+                Mov(getOperand(n.getValue), AddressOperand(base = Some(regOp(ptr)), sizeBytes = n.getType.getSizeBytes)))
             case _ => Seq(Mov(getOperand(n.getValue), getAddressOperand(n.getPtr, n.getType.getSizeBytes)))
           }
 
@@ -385,7 +441,7 @@ class CodeGenerator(a: Unit) extends Phase[AsmProgram] {
               val resultInstrs = ListBuffer[Instruction]()
 
               val (regParams, stackParams) = params.splitAt(ParamRegisters.length)
-              val regSrcOperands = regParams.map(getOperand)
+              val regSrcOperands = regParams.map(getOperand(_))
               val paramRegisters = regSrcOperands.zip(ParamRegisters).map {
                 case (srcOp, reg) => RegisterOperand(reg, srcOp.sizeBytes)
               }
@@ -432,22 +488,24 @@ class CodeGenerator(a: Unit) extends Phase[AsmProgram] {
 
             case n: nodes.Phi =>
               if (n.getMode != Mode.getM && n.getMode != Mode.getX)
-                basicBlocks(n.block).phis += Phi(n.getPreds.map(getOperand).toSeq, regOp(n))
+                basicBlocks(n.block).phis += Phi(n.getPreds.map(getOperand(_)).toSeq, regOp(n))
               Seq()
 
             case _: nodes.Block | _: nodes.Start | _: nodes.End | _: nodes.Proj |
                  _: nodes.Address | _: nodes.Const | _: nodes.Return | _: nodes.Jmp |
-                 _: nodes.Cmp | _: nodes.Cond | _: nodes.Bad | _: nodes.Unknown => Seq()
+                 _: nodes.Cmp | _: nodes.Cond | _: nodes.Bad | _: nodes.Unknown |
+                 _: nodes.Member => Seq()
           }
       }
     }
 
-    private def getOperand(node: Node): Operand = getCanonicalNode(node) match {
-      case n : nodes.Const => ConstOperand(n.getTarval.asInt(), n.getMode.getSizeBytes)
+    private def getOperand(node: Node, forceRegister: Boolean = false): Operand =
+      getCanonicalNode(node) match {
+      case n : nodes.Const => if (forceRegister) regOp(n) else ConstOperand(n.getTarval.asInt(), n.getMode.getSizeBytes)
       case n @ ProjExtr(ProjExtr(_, nodes.Start.pnTArgs), argNum) =>
         usedParams(argNum) = n
         regOp(n)
-      case n : nodes.Unknown => ConstOperand(0, n.getMode.getSizeBytes)
+      case n : nodes.Unknown => if (forceRegister) regOp(n) else ConstOperand(0, n.getMode.getSizeBytes)
       case n => regOp(n)
     }
 

@@ -158,7 +158,7 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
     fromMembers("public int i; public int j; public int foo() { Test t = null; return t.j; }") should succeedGeneratingCodeWith(template(
       """_4Test_foo:
         |.L0:
-        |  movq $4, %REG0{8}
+        |  movq $0, %REG0{8}
         |  movl (%REG0{8}), %REG1{4}
         |  movl %REG1{4}, %eax
         |.L1:
@@ -179,9 +179,9 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
   it should "generate something for non-constant null loads" in {
     fromMembers("public int foo(int i) { int[] a = null; return a[i]; }") should succeedGeneratingCodeWith(template(
       """_4Test_foo:
-        |  movl %esi, %REG0{4}
         |.L0:
-        |  movl (,%REG0{4},4), %REG1{4}
+        |  movq $0, %REG0{8}
+        |  movl (%REG0{8}), %REG1{4}
         |  movl %REG1{4}, %eax
         |.L1:
         |  ret"""))
@@ -191,7 +191,7 @@ class CodeGeneratorTest extends FlatSpec with Matchers with BeforeAndAfter {
     fromMembers("public void foo() { Test[] t = null; t[1] = null; }") should succeedGeneratingCodeWith(template(
       """_4Test_foo:
         |.L0:
-        |  movq $8, %REG0{8}
+        |  movq $0, %REG0{8}
         |  movq $0, (%REG0{8})
         |.L1:
         |  ret"""))
