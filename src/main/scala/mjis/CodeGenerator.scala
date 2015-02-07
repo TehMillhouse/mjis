@@ -232,7 +232,7 @@ class CodeGenerator(a: Unit) extends Phase[AsmProgram] {
         case AddExtr(
           GenAddExtr(base, offset),
           GenMulExtr(
-            Some(GenConvExtr(index)),
+            Some(index),
             scale@(1 | 2 | 4 | 8)
           )
         ) =>
@@ -250,17 +250,17 @@ class CodeGenerator(a: Unit) extends Phase[AsmProgram] {
             base = Some(getOperand(base).asInstanceOf[RegisterOperand]),
             indexAndScale = Some((getOperand(index).asInstanceOf[RegisterOperand], 1)),
             sizeBytes = sizeBytes)
-        case GenConvExtr(MulExtr(
-          GenConvExtr(index),
+        case MulExtr(
+          index,
           ConstExtr(scale@(1 | 2 | 4 | 8))
-        )) =>
+        ) =>
           toVisit += index
           AddressOperand(
             indexAndScale = Some((
               getOperand(index).asInstanceOf[RegisterOperand],
               scale)),
             sizeBytes = sizeBytes)
-        case GenConvExtr(other) =>
+        case other =>
           toVisit += other
           AddressOperand(
             base = Some(getOperand(other).asInstanceOf[RegisterOperand]),

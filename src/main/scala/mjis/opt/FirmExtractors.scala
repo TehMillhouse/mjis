@@ -19,20 +19,6 @@ object FirmExtractors {
     }
   }
 
-  object ConvExtr {
-    def unapply(node: Node): Option[Node] = node match {
-      case c: Conv => Some(c.getOp)
-      case _ => None
-    }
-  }
-
-  object GenConvExtr {
-    def unapply(node: Node): Option[Node] = node match {
-      case ConvExtr(n) => Some(n)
-      case _ => Some(node)
-    }
-  }
-
   object ProjExtr {
     def unapply(node: Node): Option[(Node, Int)] = node match {
       case proj: Proj => Some((proj.getPred, proj.getNum))
@@ -67,6 +53,7 @@ object FirmExtractors {
       case _ => None
     }
   }
+
   object SubExtr {
     def unapply(node: Node): Option[(Node, Node)] = node match {
       case sub: Sub => Some((sub.getLeft, sub.getRight))
